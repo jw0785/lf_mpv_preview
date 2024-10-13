@@ -64,7 +64,7 @@ function Show-ImageOrVideo {
     #>
     param(
         [string]$FilePath,
-        [int]$Width = 1920
+        [int]$Width = 1440
     )
     $mpvSocket = "\\.\pipe\mpv-socket"
     if (-not (Test-Path $mpvSocket)) {
