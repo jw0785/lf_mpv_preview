@@ -1,7 +1,17 @@
 # Extract the directory of the current script
 $scriptFullPath = $MyInvocation.MyCommand.Definition
 $psScriptDir = Split-Path -Parent $scriptFullPath
-Write-Output "Script Directory: $psScriptDir"
+#Write-Output "Script Directory: $psScriptDir"
+
+# Load supported formats from JSON
+$supportedFormatsFile = Join-Path $psScriptDir "supported_formats.json"
+if (Test-Path $supportedFormatsFile) {
+    $supportedFormats = Get-Content $supportedFormatsFile | ConvertFrom-Json
+} else {
+    Write-Warning "Supported formats JSON file not found, invoking format_updater.bat now."
+    Start-Process -FilePath (Join-Path $psScriptDir "format_updater.bat") -Wait
+    $supportedFormats = Get-Content $supportedFormatsFile | ConvertFrom-Json
+}
 
 function Get-MimeType {
     <#
@@ -14,20 +24,19 @@ function Get-MimeType {
     param(
         [string]$FilePath
     )
-    $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
+    $extension = [System.IO.Path]::GetExtension($FilePath).ToLower().TrimStart('.')
+    
+    # Check if the extension is found in the supported formats JSON (treat as media)
+    foreach ($format in $supportedFormats) {
+        if ($format.Ext -eq $extension) {
+            return 'media'
+        }
+    }
+    
+    # Fallback to check for text and PDF as non-media formats
     switch ($extension) {
         '.txt' { return 'text/plain' }
-        '.jpg' { return 'image/jpeg' }
-        '.avif' { return 'image/avif' }
-        '.webp' { return 'image/webp' }
-        '.tif' { return 'image/tiff' }
-        '.tiff' { return 'image/tiff' }
-        '.jpeg' { return 'image/jpeg' }
-        '.png' { return 'image/png' }
-        '.gif' { return 'image/gif' }
         '.pdf' { return 'application/pdf' }
-        '.mp4' { return 'video/mp4' }
-        '.mkv' { return 'video/x-matroska' }
         Default { return 'none' }
     }
 }
@@ -173,7 +182,7 @@ function Format-Text {
 # Main previewer logic
 $file_path = $args[1]
 $previewer_width = $args[2]
-$previewer_height = $args[3]
+# $previewer_height = $args[3]
 $mimeType = Get-MimeType $file_path
 if (-not $mimeType) {
     $mimeType = 'none'
@@ -196,7 +205,7 @@ try {
         Write-Divider
         Show-Text $file_path
     }
-    elseif ($mimeType -match 'image/' -or $mimeType -match 'video/') {
+    if ($mimeType -eq 'media') {
         Write-Divider
         Show-ImageOrVideo $file_path
     }
