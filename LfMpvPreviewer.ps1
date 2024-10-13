@@ -1,3 +1,8 @@
+# Extract the directory of the current script
+$scriptFullPath = $MyInvocation.MyCommand.Definition
+$psScriptDir = Split-Path -Parent $scriptFullPath
+Write-Output "Script Directory: $psScriptDir"
+
 function Get-MimeType {
     <#
     Determines the MIME type based on the file extension.
@@ -64,13 +69,32 @@ function Show-ImageOrVideo {
     $mpvSocket = "\\.\pipe\mpv-socket"
     if (-not (Test-Path $mpvSocket)) {
         Write-Output "Starting MPV with socket server..."
-        $quotedFilePath = "`"$FilePath`""
-        Start-Process -FilePath "mpv" -ArgumentList "--input-ipc-server=$mpvSocket --no-terminal --quiet --script-opts=autoload-disabled=yes --no-input-default-bindings --image-display-duration=inf", --geometry=$Width, $quotedFilePath -WindowStyle Hidden
-        Start-Sleep -Milliseconds 100
+        $quotedFilePath = "`"$FilePath`"" #so it will be passed as a single argument to mpv
+        $base_arguments = @("--input-ipc-server=\\.\pipe\mpv-socket", 
+               "--no-terminal", 
+               "--quiet", 
+               "--script-opts=autoload-disabled=yes", 
+               "--no-input-default-bindings", 
+               "--image-display-duration=inf", 
+               "--geometry=$Width",
+               "--load-scripts=no",
+               "--osd-level=1",
+               "--osc=no",
+               $quotedFilePath)
+        $luaScriptPath = Join-Path $psScriptDir "lua\sleep_timer.lua"
+        #Write-Output "Lua Script Path: $luaScriptPath"
+        $quotedLuaScriptPath = "`"$luaScriptPath`"" #so it will be passed as a single argument to mpv
+        if (Test-Path $luaScriptPath <#so it won't be treated as a literal quote#>) {
+                $base_arguments += "--script=$quotedLuaScriptPath"
+            } else {
+                Write-Warning "Lua script not found, continuing without sleep timer"
+            }
+        Start-Process -FilePath "mpv" -ArgumentList $base_arguments -WindowStyle Hidden
+        Start-Sleep -Milliseconds 10
         $retryCount = 0
         $maxRetries = 10
         while (-not (Test-Path $mpvSocket) -and $retryCount -lt $maxRetries) {
-            Start-Sleep -Milliseconds 15
+            Start-Sleep -Milliseconds 10
             $retryCount++
         }
         if (-not (Test-Path $mpvSocket)) {
@@ -145,13 +169,11 @@ function Format-Text {
     }
     Write-Host ""
 }
-
 # Main previewer logic
 $file_path = $args[1]
 $previewer_width = $args[2]
 $previewer_height = $args[3]
 $mimeType = Get-MimeType $file_path
-
 if (-not $mimeType) {
     $mimeType = 'none'
 }
