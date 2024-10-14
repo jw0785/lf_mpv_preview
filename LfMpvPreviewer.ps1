@@ -25,18 +25,30 @@ function Get-MimeType {
         [string]$FilePath
     )
     $extension = [System.IO.Path]::GetExtension($FilePath).ToLower().TrimStart('.')
-    
-    # Check if the extension is found in the supported formats JSON (treat as media)
+
+    # First check: Common known media formats
+    switch ($extension) {
+        'mp4'  { return 'media' }
+        'mkv'  { return 'media' }
+        'jpg'  { return 'media' }
+        'jpeg' { return 'media' }
+        'png'  { return 'media' }
+        'gif'  { return 'media' }
+        'tiff' { return 'media' }
+        'tif'  { return 'media' }
+        'avif' { return 'media' }
+        'webp' { return 'media' }
+    }
+    # Second check: Check against formats listed in supported_formats.json
     foreach ($format in $supportedFormats) {
         if ($format.Ext -eq $extension) {
             return 'media'
         }
     }
-    
-    # Fallback to check for text and PDF as non-media formats
+    # Fallback check: Non-media formats (e.g., text, PDF)
     switch ($extension) {
-        '.txt' { return 'text/plain' }
-        '.pdf' { return 'application/pdf' }
+        'txt' { return 'text/plain' }
+        'pdf' { return 'application/pdf' }
         Default { return 'none' }
     }
 }
