@@ -13,5 +13,5 @@ set previewer "PATH\TO\THE\LfMpvPreviewer_loader.cmd"
 any extra script is added the similar way, for example 
 ```
 # Copy file to clipboard
-set previewer "PATH\TO\THE\real_copy.cmd"
+map <c-c> ${{"PATH\TO\THE\real_copy.cmd" %f%}}
 ```
