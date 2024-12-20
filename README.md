@@ -1,7 +1,7 @@
 # A script leveraging mpv for preview of images and more for **lf** on Windows platform
 ## 1. Install lf
 ## 2. Install mpv
-## 3. download scripts to the same directory
+## 3. download scripts to one directory or clone the repo
 ## 4. Set up lfrc
 add lines into lfrc
 
