@@ -30,8 +30,13 @@ function Get-MimeType {
     switch ($extension) {
         'mp4'  { return 'media' }
         'mkv'  { return 'media' }
+        'webm' { return 'media' }
+        'gif'  { return 'media' }
+        'mov'  { return 'media' }
         'jpg'  { return 'media' }
         'jpeg' { return 'media' }
+        'jxl'  { return 'media' }
+        'j2k'  { return 'media' }
         'png'  { return 'media' }
         'gif'  { return 'media' }
         'tiff' { return 'media' }
@@ -87,11 +92,18 @@ function Show-ImageOrVideo {
         [string]$FilePath,
         [int]$Width = 1440
     )
-    $mpvSocket = "\\.\pipe\mpv-socket"
+    # TODO: Get the parent lf process ID to create unique socket per lf instance
+    # $lfProcess = Get-WmiObject Win32_Process | Where-Object { 
+    #     $_.ProcessId -eq (Get-WmiObject Win32_Process -Filter "ProcessId=$PID").ParentProcessId 
+    # }
+    # $lfPid = if ($lfProcess) { $lfProcess.ParentProcessId } else { "default" }
+    $lfPid = 'lf-00'
+    $uniqueSocketName = "mpv-socket-lf-$lfPid"
+    $mpvSocket = "\\.\pipe\$uniqueSocketName"
     if (-not (Test-Path $mpvSocket)) {
         Write-Output "Starting MPV with socket server..."
         $quotedFilePath = "`"$FilePath`"" #so it will be passed as a single argument to mpv
-        $base_arguments = @("--input-ipc-server=\\.\pipe\mpv-socket", 
+        $base_arguments = @("--input-ipc-server=\\.\pipe\$uniqueSocketName", 
                "--no-terminal", 
                "--quiet", 
                "--script-opts=autoload-disabled=yes", 
@@ -112,7 +124,7 @@ function Show-ImageOrVideo {
                 Write-Warning "Lua script not found, continuing without sleep timer"
             }
         Start-Process -FilePath "mpv" -ArgumentList $base_arguments -WindowStyle Hidden
-        Start-Sleep -Milliseconds 10
+        Start-Sleep -Milliseconds 20
         $retryCount = 0
         $maxRetries = 10
         while (-not (Test-Path $mpvSocket) -and $retryCount -lt $maxRetries) {
@@ -123,10 +135,12 @@ function Show-ImageOrVideo {
             Write-Output "Failed to start MPV or socket not created after retries."
             return
         }
+    } else {
+        Write-Output "Reusing existing MPV instance for lf $lfPid."
     }
     $json = '{"command": ["loadfile", "' + ($FilePath -replace '\\', '\\\\') + '", "replace"]}'
     try {
-        $pipeStream = New-Object System.IO.Pipes.NamedPipeClientStream(".", "mpv-socket", [System.IO.Pipes.PipeDirection]::InOut)
+        $pipeStream = New-Object System.IO.Pipes.NamedPipeClientStream(".", $uniqueSocketName, [System.IO.Pipes.PipeDirection]::InOut)
         $pipeStream.Connect(50)
         if ($pipeStream.IsConnected) {
             $streamWriter = New-Object System.IO.StreamWriter($pipeStream)
