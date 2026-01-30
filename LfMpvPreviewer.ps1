@@ -114,6 +114,7 @@ function Show-ImageOrVideo {
                "--osd-level=1",
                "--osc=no",
                "--mute=yes",
+               "--ontop",
                $quotedFilePath)
         $luaScriptPath = Join-Path $psScriptDir "lua\sleep_timer.lua"
         #Write-Output "Lua Script Path: $luaScriptPath"
