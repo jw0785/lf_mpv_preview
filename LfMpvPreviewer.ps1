@@ -102,8 +102,21 @@ function Show-ImageOrVideo {
     $mpvSocket = "\\.\pipe\$uniqueSocketName"
     if (-not (Test-Path $mpvSocket)) {
         Write-Output "Starting MPV with socket server..."
+        if (-not ([System.Management.Automation.PSTypeName]'FocusHelper').Type) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class FocusHelper {
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+}
+'@
+        }
+        $prevForeground = [FocusHelper]::GetForegroundWindow()
         $quotedFilePath = "`"$FilePath`"" #so it will be passed as a single argument to mpv
         $base_arguments = @("--input-ipc-server=\\.\pipe\$uniqueSocketName", 
+			   "--icc-profile-auto=yes",
                "--no-terminal", 
                "--quiet", 
                "--script-opts=autoload-disabled=yes", 
@@ -131,6 +144,11 @@ function Show-ImageOrVideo {
         while (-not (Test-Path $mpvSocket) -and $retryCount -lt $maxRetries) {
             Start-Sleep -Milliseconds 10
             $retryCount++
+        }
+        if ($prevForeground -ne [IntPtr]::Zero) {
+            [FocusHelper]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
+            [FocusHelper]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
+            [FocusHelper]::SetForegroundWindow($prevForeground) | Out-Null
         }
         if (-not (Test-Path $mpvSocket)) {
             Write-Output "Failed to start MPV or socket not created after retries."
